@@ -1,0 +1,45 @@
+var mongoose = require("mongoose");
+var model = require("../models");
+
+const LOST = 0;
+const FOUND = 1;
+
+module.exports = function (req, res, next) {
+    if (!req.get("openId") || !req.get("uid")) {
+        console.log("Not authorized", req.headers, req.get("openId"), req.get("uid"));
+        res.status(403).json({succeed: false, msg: "未登录"});
+        return false;
+    }
+
+    var userQuery = {_id: req.get("uid"), openId: req.get("openId")};
+    
+    var createDoc = {
+        'lnfType': req.body.lnfType,
+        'title': req.body.title,
+        'place': req.body.place,
+        'time': new Date(req.body.time),
+        'supplementary': req.body.supplementary
+    }
+
+    model.User.findOne(userQuery, {_id: 1, nickName: 1, tel: 1}).exec()
+        .then(function(userDoc){
+            if (userDoc) {
+                createDoc.user = userDoc;
+            } else {
+                throw {httpCode: 403, result: {succeed: false, msg: "用户信息出错"}, err: ""};
+            }
+        }).then(function(){
+            return model.LostNFound.create(createDoc);
+        }).then(function(lnfDoc){
+            console.log("LostNFound Document Creation", lnfDoc);
+            res.json({succeed: true, msg: "OK"});
+        }).catch(function (err){
+            console.log(err);
+            if (err.httpCode) {
+                res.status(err.httpCode).json(err.result);
+            } else {
+                res.status(500).json({succeed: false, msg: "服务器出现错误"});
+            }
+        });   
+}
+
